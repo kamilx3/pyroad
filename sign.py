@@ -5,45 +5,52 @@ import math
 import numpy as np
 from matplotlib import pyplot as plt
 
-img = cv2.imread("/home/kamil/opencv/sign.png")
-#img = cv2.bilateralFilter(img,30,175,175)
-#grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+img = cv2.imread("sign4.png")
+#img = cv2.bilateralFilter(img,9,75,75) #slow
 hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV) #COLOR_BGR2GRAY, COLOR_HLS2RGB, COLOR_RGB2HLS, COLOR_BGR2HLS
+hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
 
-lower_blue = np.array([100,60,60])
-upper_blue = np.array([140,255,255])
-lower_white = np.array([0,0,220]) #Fix this
-upper_white = np.array([360,255,255])
-# Threshold the HSV image to get only blue colors
-if False:
-    mask = cv2.inRange(hsv, lower_blue, upper_blue)
-else:
-    mask = cv2.inRange(hsv, lower_red, upper_red)
-# Bitwise-AND mask and original image
-#cv2.imshow('frame',img)
-median = cv2.medianBlur(mask,5)
+low_w = np.array([0,0,200])
+up_w = np.array([180,255,255])
 
 kernel = np.ones((5,5),np.uint8)
-erosion = cv2.erode(img,kernel,iterations = 1)
-dilation = cv2.dilate(median,kernel,iterations = 1)
-closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel, iterations = 1) # not really neccessery, pretty slow in fact
+maskw = cv2.inRange(hsv, low_w, up_w)
+maskw = cv2.dilate(maskw,kernel,iterations = 1)
 
-##Contours finding
-ret,thresh = cv2.threshold(closing,127,255,0) #unnecessary, does nothing
-contours,hierarchy = cv2.findContours(thresh, 1, 1) #1, 5
+low_b = np.array([100, 160,0])  #make those values better
+up_b = np.array([119,255,255])
+low_r1 = np.array([0, 160, 0])
+up_r1 = np.array([5, 255, 255])
+low_r2 = np.array([170, 160, 0])
+up_r2 = np.array([180, 255, 255])
+low_y = np.array([16, 140, 0])
+up_y = np.array([18, 255, 255])
 
-
-res = cv2.bitwise_and(img,img, mask=closing)
-#cnt = contours[0]
-#M = cv2.moments(cnt)
-#print M
-#hull = cv2.convexHull(cnt)
-#print len(contours)
-for cnt in contours:
-    x,y,w,h = cv2.boundingRect(cnt)
-    aspect_ratio = float(w)/h
-    if  cv2.contourArea(cnt)>0: #minimal sign size, aspect ratio
-        cv2.drawContours(img, [cnt], 0, (0,255,0), 3) #change last to -1 to fill contour
+for x in [[[low_b,up_b],["d"]],[[low_r1,up_r1],[low_r2,up_r2]],[[low_y,up_y]]]:
+#for x in [[[low_b,up_b],["1"]]]:
+    mask = cv2.inRange(hsv, x[0][0], x[0][1])
+    for y in x[1:]:
+        if y[0]=="d":
+            mask = cv2.dilate(mask,kernel,iterations = 1)
+        elif y[0]=="e":
+            mask = cv2.erode(mask,kernel,iterations = 1)
+        elif y[0]=="mo":
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        elif y[0]=="mc":
+            v2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel, iterations = 1)
+        elif y[0]=="b":
+            mask = cv2.medianBlur(mask,5)
+        else:
+            mask2 = cv2.inRange(hsv, y[0], y[1])
+            mask = cv2.add(mask, mask2)
+    contours,hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, 1) #1, 5
+    #res = cv2.bitwise_and(img,img, mask=mask)
+    for cnt in contours:
+        cnt = cv2.convexHull(cnt)
+        x,y,w,h = cv2.boundingRect(cnt)
+        aspect_ratio = float(w)/h
+        if  cv2.contourArea(cnt)>600 and aspect_ratio<1.2: #minimal size and width less than 1.5 of hight
+            cv2.drawContours(img, [cnt], 0, (0,255,0), 3) #change last to -1 to fill contour
 cv2.imshow('img',img)
 cv2.waitKey(0)
 
